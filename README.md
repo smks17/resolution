@@ -1,0 +1,2 @@
+# Resolution method
+[resolution](https://en.wikipedia.org/wiki/Resolution_(logic)) is a rule of inference leading to a refutation complete theorem-proving technique for sentences in propositional logic and first-order logic.
