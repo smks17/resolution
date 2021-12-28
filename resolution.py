@@ -1,7 +1,7 @@
-from enum import Enum, Flag
+from enum import Enum
 from typing import Union
 
-__all__ = ['Operation', 'Cluese', 'parse', 'prove']
+__all__ = ['Operation', 'ClauseSentence', 'parse', 'prove']
 __author__ = 'Mahdi Kashani'
 __title__ = 'Resolution method'
 
@@ -14,7 +14,7 @@ class Operation(Enum):
             CONJUNCTION : \\/
             DISJUNCTION : /\\
             IMPLICATION : ->
-            EQUVALENCE : <->
+            EQUIVALENCE : <->
 
         Methods
         -------
@@ -26,7 +26,7 @@ class Operation(Enum):
     CONJUNCTION = '\\/'   # a \/ b
     DISJUNCTION = '/\\'   # a /\ b
     IMPLICATION = '->'    # a -> b
-    EQUVALENCE  = '<->'   # a <-> b
+    EQUIVALENCE  = '<->'   # a <-> b
 
     @staticmethod
     def getOperation(operand: str):
@@ -39,7 +39,7 @@ class Operation(Enum):
         elif(operand == '->'):
             return Operation.IMPLICATION
         elif(operand == '<->'):
-            return Operation.EQUVALENCE
+            return Operation.EQUIVALENCE
         else:
             return Operation.NONE
 
@@ -53,7 +53,7 @@ class Operation(Enum):
             return '\u2227'
         elif(self == Operation.IMPLICATION):
             return '\u2192'
-        elif(self == Operation.EQUVALENCE):
+        elif(self == Operation.EQUIVALENCE):
             return '\u27F7'
         else:
             return ''   
@@ -63,11 +63,9 @@ class ClauseSentence:
     operand: Operation
     def __init__(self, operand: Operation, clause: tuple):
         if(operand == Operation.NONE):
-            assert isinstance(clause, str), "you should use str or tuple with Cluse type element"
-        # elif(operand == Operation.NEGATION):
-        #     assert isinstance(clause, ClauseSentence), "you should use str or tuple with Cluse type element"
+            assert isinstance(clause, str), "you should use str or tuple with Clause type element"
         else:
-            assert all(isinstance(i, ClauseSentence) for i in clause), "you should use str or tuple with Cluse type element"
+            assert all(isinstance(i, ClauseSentence) for i in clause), "you should use str or tuple with Clause type element"
         self.operand = operand
         self.clause = clause
 
@@ -105,9 +103,9 @@ def convert(term: ClauseSentence):
         if(isNegation):
             return applyNegation(ClauseSentence( Operation.NEGATION, (res,)))
         return res
-    elif(term.operand == Operation.EQUVALENCE):
-        clause1 = ClauseSentence( Operation.CONJUNCTION, ClauseSentence(applyNegation(ClauseSentence(Operation.NEGATION, term.clause[0],)), term.clause[1]))
-        clause2 = ClauseSentence( Operation.CONJUNCTION, ClauseSentence(term.clause[0], applyNegation(ClauseSentence(Operation.NEGATION, term.clause[1],))))
+    elif(term.operand == Operation.EQUIVALENCE):
+        clause1 = applyNegation(ClauseSentence( Operation.CONJUNCTION, (applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))), term.clause[1])))
+        clause2 = applyNegation(ClauseSentence( Operation.CONJUNCTION, (term.clause[0], applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))))
         res = ClauseSentence(Operation.DISJUNCTION, (clause1, clause2))
         if(isNegation):
             return applyNegation(ClauseSentence( Operation.NEGATION, (res,)))
@@ -125,7 +123,8 @@ def distribution(term: ClauseSentence):
         not term.clause[0].operand == Operation.NONE
         and term.clause[1].operand == Operation.NONE
         and not term.clause[0].operand == term.operand
-        and term.clause[0].operand in [Operation.DISJUNCTION, Operation.CONJUNCTION]
+        and term.clause[0].operand == Operation.DISJUNCTION
+        and term.operand == Operation.CONJUNCTION
     ):
         clause1 = ClauseSentence(term.operand, (term.clause[0].clause[0], term.clause[1]))
         clause2 = ClauseSentence(term.operand, (term.clause[0].clause[1], term.clause[1]))
@@ -135,11 +134,12 @@ def distribution(term: ClauseSentence):
         not term.clause[1].operand == Operation.NONE
         and term.clause[0].operand == Operation.NONE
         and not term.clause[1].operand == term.operand
-        and term.clause[1].operand in [Operation.DISJUNCTION, Operation.CONJUNCTION]
+        and term.clause[1].operand == Operation.DISJUNCTION
+        and term.operand == Operation.CONJUNCTION
     ):
         clause1 = ClauseSentence(term.operand, (term.clause[1].clause[0], term.clause[0]))
-        clause2 = ClauseSentence(term.operand, (term.clause[1].clause[0], term.clause[0]))
-        return ClauseSentence(term.clause[0].operand, (clause1, clause2))
+        clause2 = ClauseSentence(term.operand, (term.clause[1].clause[1], term.clause[0]))
+        return ClauseSentence(term.clause[1].operand, (clause1, clause2))
 
 def splitByDisjunction(term: ClauseSentence):
     result = []
@@ -158,7 +158,9 @@ def splitByDisjunction(term: ClauseSentence):
             result.append({clause2.toString()})
         return result
     elif(term.operand == Operation.CONJUNCTION):
-        return [set([term.clause[0].toString(), term.clause[1].toString()])]
+        clause1 = splitByDisjunction(term.clause[0])
+        clause2 = splitByDisjunction(term.clause[1])
+        return clause1 + clause2
     else:
         return [set([term.toString()])]
 
@@ -178,7 +180,7 @@ def applyNegation(term: ClauseSentence):
         return term
     else:
         term = term.clause[0]
-        if(term.operand in [Operation.EQUVALENCE, Operation.IMPLICATION]):
+        if(term.operand in [Operation.EQUIVALENCE, Operation.IMPLICATION]):
             term = convert(term)
         if(term.operand == Operation.CONJUNCTION):
             clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
@@ -188,6 +190,8 @@ def applyNegation(term: ClauseSentence):
             clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
             clause2 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))
             return ClauseSentence( Operation.CONJUNCTION, (clause1 , clause2) )
+        elif(term.operand == Operation.NEGATION):
+            return applyNegation(term.clause[0])
         else:
             return ClauseSentence(Operation.NEGATION, (term,))
 
@@ -210,6 +214,7 @@ def isProvable(premises: list):
 
 def prove(premises: list[str], conclusion: list[str]):
     tempPremises = premises.copy()
+    if (conclusion != ""):
     tempPremises.append('~ ( ' + conclusion + ' )')
     premisesClause = []
     for pre in tempPremises:
@@ -218,10 +223,7 @@ def prove(premises: list[str], conclusion: list[str]):
         if(not clause.operand == Operation.NONE):
             if(clause.operand == Operation.NEGATION):
                 clause = simplificationNegation(clause)
-                res = applyNegation(clause)
-                if(not res == None):
-                    clause = res
-            if(clause.operand == Operation.IMPLICATION or clause.operand == Operation.EQUVALENCE):
+            if(clause.operand == Operation.IMPLICATION or clause.operand == Operation.EQUIVALENCE):
                 clause = convert(clause)
             res = distribution(clause)
             if(not res == None):
