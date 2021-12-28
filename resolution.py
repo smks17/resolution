@@ -288,5 +288,26 @@ def parse(input: list) -> ClauseSentence:
         i+=1
 
 if __name__ == "__main__":
-    print("you run from wrong place!")
-    print("please run with import this file in another file.")
+    import cmd
+    commands = []
+    class CmdParse(cmd.Cmd):
+        intro = 'Welcome to the resolution shell.   Type help or ? to list commands.\n' 
+        prompt = "> "
+        def default(self, line):
+            line = line.split(',')
+            if len(line) == 1:
+                print(prove(line))
+            else:
+                print(prove(line[:-1], line[-1]))
+            commands.append(line)
+        def do_help(self, line):
+            if line == "exit":
+                print(self.do_exit.__doc__)
+            else:
+                print(" your clause should be written with space between symbols and variable and also put tuple variable in ( )")
+        def empty(self, line):
+            self.do_help()
+        def do_exit(self, arg):
+            """ exit from shell mode """
+            exit(0)
+    CmdParse().cmdloop()
