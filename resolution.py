@@ -5,7 +5,10 @@ __all__ = ['Operation', 'ClauseSentence', 'parse', 'prove']
 __author__ = 'Mahdi Kashani'
 __title__ = 'Resolution method'
 
+
+#=====================
 class Operation(Enum):
+#=====================
     """
         Attributs
         ---------
@@ -20,6 +23,8 @@ class Operation(Enum):
         -------
             getOperation(operand)
                 return your operand in Operation type
+            symbol
+                return the symbol of operation unicode
     """
     NONE        = ' '     # a , b
     NEGATION    = '~'     # ~a , ~b
@@ -58,7 +63,10 @@ class Operation(Enum):
         else:
             return ''   
 
+
+#=====================
 class ClauseSentence:
+#=====================
     clause: Union[tuple, str]
     operand: Operation
     def __init__(self, operand: Operation, clause: tuple):
@@ -90,19 +98,28 @@ class ClauseSentence:
             return f'{op} {str(self.clause.__str__())}'
         op = self.operand.symbol
         return f'{self.clause[0].__str__()} {op} {self.clause[1].__str__()}'
-
+    
+#----------------------------------
 def convert(term: ClauseSentence):
-    """ convert implication and equavalnce to disjunction or conjunction"""
+#----------------------------------
+    """
+        convert implication and equivalence to disjunction or conjunction
+        and if term has not implication or equivalence return term without changing
+    """
     isNegation = False
     if(term.operand == Operation.NEGATION):
-        term = term.clause
+        # delete negation and then add in the end 
+        term = term.clause[0]
         isNegation = True
+    
+    # implication convert to conjunction
     if(term.operand == Operation.IMPLICATION):
         clause = (applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],) )), term.clause[1])
         res = ClauseSentence( Operation.CONJUNCTION, clause )
         if(isNegation):
             return applyNegation(ClauseSentence( Operation.NEGATION, (res,)))
         return res
+    # equivalence convert to disjunction
     elif(term.operand == Operation.EQUIVALENCE):
         clause1 = applyNegation(ClauseSentence( Operation.CONJUNCTION, (applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))), term.clause[1])))
         clause2 = applyNegation(ClauseSentence( Operation.CONJUNCTION, (term.clause[0], applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))))
@@ -111,14 +128,28 @@ def convert(term: ClauseSentence):
             return applyNegation(ClauseSentence( Operation.NEGATION, (res,)))
         return res
 
+#------------------------------------------------
 def simplificationNegation(term: ClauseSentence):
+#------------------------------------------------
+    """
+        delete repetitious negations in a variable or terms
+        for example ~ ( ~ A ) convert to A or ~ ( ~ ( ~ A ) ) covert to ~ A
+    """
     while(term.operand == Operation.NEGATION and term.clause[0].operand == Operation.NEGATION):
         term = term.clause[0].clause[0]
     return term
 
+#---------------------------------------
 def distribution(term: ClauseSentence):
+#---------------------------------------
+    """
+        if term in form of A \/ ( B /\ C ), this function converts this term
+        in form of (A \/ B) /\ (A \/ C)
+    """
     if(term.operand in [Operation.NEGATION, Operation.NONE]):
         return None
+    
+    # if term in format of ( B /\ C ) \/ A
     elif(
         not term.clause[0].operand == Operation.NONE
         and term.clause[1].operand == Operation.NONE
@@ -130,6 +161,7 @@ def distribution(term: ClauseSentence):
         clause2 = ClauseSentence(term.operand, (term.clause[0].clause[1], term.clause[1]))
         return ClauseSentence(term.clause[0].operand, (clause1, clause2))
 
+    # if term in format of A \/ ( B /\ C )
     elif(
         not term.clause[1].operand == Operation.NONE
         and term.clause[0].operand == Operation.NONE
@@ -141,10 +173,21 @@ def distribution(term: ClauseSentence):
         clause2 = ClauseSentence(term.operand, (term.clause[1].clause[1], term.clause[0]))
         return ClauseSentence(term.clause[1].operand, (clause1, clause2))
 
+#--------------------------------------------
 def splitByDisjunction(term: ClauseSentence):
+#--------------------------------------------
+    """
+        split term to a set of premises list for using in resolution
+        
+        (A /\ B /\ ...) to {A}, {B}, ...
+
+        (A \/ B \/ ...) to {A,B,...}
+    """
     result = []
     if(term.operand == Operation.NEGATION):
         term = applyNegation(term)
+
+    # (A /\ B /\ ...)
     if(term.operand == Operation.DISJUNCTION):
         clause1 = term.clause[0]
         clause2 = term.clause[1]
@@ -157,14 +200,55 @@ def splitByDisjunction(term: ClauseSentence):
         else:
             result.append({clause2.toString()})
         return result
+
+    # (A \/ B \/ ...)
     elif(term.operand == Operation.CONJUNCTION):
         clause1 = splitByDisjunction(term.clause[0])
         clause2 = splitByDisjunction(term.clause[1])
         return clause1 + clause2
+    
+    # single variabale
     else:
         return [set([term.toString()])]
 
+#----------------------------------------
+def applyNegation(term: ClauseSentence):
+#----------------------------------------
+    """
+        apply negation and return the simpilication for of clause
+        for example ~ ( A \/ B) covert to ( ~A /\ ~B)
+    """
+    if(not term.operand == Operation.NEGATION):
+        return term
+    else:
+        term = term.clause[0]
+        # if still equivalence or implication did not converted
+        if(term.operand in [Operation.EQUIVALENCE, Operation.IMPLICATION]):
+            term = convert(term)
+        
+        # conjunction
+        if(term.operand == Operation.CONJUNCTION):
+            clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
+            clause2 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))
+            return ClauseSentence( Operation.DISJUNCTION, (clause1 , clause2) )
+        
+        # disjunction
+        elif(term.operand == Operation.DISJUNCTION):
+            clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
+            clause2 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))
+            return ClauseSentence( Operation.CONJUNCTION, (clause1 , clause2) )
+        elif(term.operand == Operation.NEGATION):
+            return applyNegation(term.clause[0])
+        else:
+            return ClauseSentence(Operation.NEGATION, (term,))
+    
+#----------------------------------------------
 def subscription(premise1: set, premise2: set):
+#----------------------------------------------
+    """
+        return a set without every repetitious variables in 2 set of premises
+        this function return a generator of set
+    """
     for pre1 in premise1:
         for pre2 in premise2:
             if(pre1[-1] == pre2[-1]):
@@ -175,29 +259,13 @@ def subscription(premise1: set, premise2: set):
                 temp.remove(pre2)
                 yield (temp)
 
-def applyNegation(term: ClauseSentence):
-    if(not term.operand == Operation.NEGATION):
-        return term
-    else:
-        term = term.clause[0]
-        if(term.operand in [Operation.EQUIVALENCE, Operation.IMPLICATION]):
-            term = convert(term)
-        if(term.operand == Operation.CONJUNCTION):
-            clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
-            clause2 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))
-            return ClauseSentence( Operation.DISJUNCTION, (clause1 , clause2) )
-        elif(term.operand == Operation.DISJUNCTION):
-            clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
-            clause2 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))
-            return ClauseSentence( Operation.CONJUNCTION, (clause1 , clause2) )
-        elif(term.operand == Operation.NEGATION):
-            return applyNegation(term.clause[0])
-        else:
-            return ClauseSentence(Operation.NEGATION, (term,))
 
+#------------------------------
 def isProvable(premises: list):
+#------------------------------
     """
-        if clauses can prove conlusion return True otherwise False
+        if premises (whitout preprocess) can prove conclusion return True otherwise False
+        premises is a set of variable list for check with resolution principle are these conflict or not 
     """
     for pre in premises:
         for other in premises:
@@ -212,13 +280,51 @@ def isProvable(premises: list):
                         premises.append(x)
     return False
 
-def prove(premises: list[str], conclusion: list[str]):
+
+#-----------------------------------------------------
+def prove(premises: list[str], conclusion: str = ""):
+#-----------------------------------------------------
+    """
+        preprocess and check could prove conclusion from premises
+
+        convert all premisers to set of 
+
+        Parameter
+        ----------
+        premises: list[str]
+            list of premises
+
+        conclusion: str
+            the clause should conclude
+    
+        Return
+        ------
+        bool
+            return True if provable otherwise return False
+
+        Examples:
+        ---------
+            >>> prove(['p /\\ q', 'q'], 'p')
+            True
+            >>> prove(['~ q' , ' p -> q'], '~ p')
+            True
+            >>> prove(['p \\/ q', 'p'], 'q')
+            False
+            
+            also you can see example.py for more examples.
+
+        Note
+        ----
+            your input should have space between each symbols
+            (constant, variable, operation, braces) and for each couple
+            variable and a operation put a braces. 
+
+    """
     tempPremises = premises.copy()
     if (conclusion != ""):
-    tempPremises.append('~ ( ' + conclusion + ' )')
+        tempPremises.append('~ ( ' + conclusion + ' )')
     premisesClause = []
     for pre in tempPremises:
-        is_Negation = False
         clause = parse(pre.split())
         if(not clause.operand == Operation.NONE):
             if(clause.operand == Operation.NEGATION):
@@ -235,7 +341,9 @@ def prove(premises: list[str], conclusion: list[str]):
     premisesClause = temp
     return isProvable(premisesClause), premisesClause
 
+#------------------------------------------
 def parse(input: list) -> ClauseSentence:
+#------------------------------------------
     """
         parse a logic term to a ClauseSentence
 
@@ -248,6 +356,7 @@ def parse(input: list) -> ClauseSentence:
         ------
         ClauseSentence
             operation and clause inform a ClauseSentence object 
+
         Examples
         -------
             >>> rawInput = 'p -> q'
@@ -257,7 +366,7 @@ def parse(input: list) -> ClauseSentence:
             >>> rawInput = '( ~ p) \\/ ( q <->)'
             >>> input = rawInput.split()
             >>> print(parse(input))
-            (<Operation.DISJUNCTION: '/\'>, ((<Operation.NEGATION: '~'>, ((<Operation.NONE: ' '>, 'p'),)), (<Operation.EQUVALENCE: '<->'>, ((<Operation.NONE: ' '>, 'q'), (<Operation.NONE: ' '>, 'p')))))
+            (<Operation.DISJUNCTION: '/\'>, ((<Operation.NEGATION: '~'>, ((<Operation.NONE: ' '>, 'p'),)), (<Operation.EQUIVALENCE: '<->'>, ((<Operation.NONE: ' '>, 'q'), (<Operation.NONE: ' '>, 'p')))))
     """
     if(len(input) == 1):
         return ClauseSentence( Operation.NONE, input[0] )
@@ -286,6 +395,7 @@ def parse(input: list) -> ClauseSentence:
             clause = ( parse(input[0:i]), parse(input[i+1:len(input)]) )
             return ClauseSentence( Operation.getOperation(input[i]) , clause )
         i+=1
+    
 
 if __name__ == "__main__":
     import cmd
