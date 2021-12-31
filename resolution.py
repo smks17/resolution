@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from typing import Union
 
@@ -31,7 +32,10 @@ class Operation(Enum):
     CONJUNCTION = '\\/'   # a \/ b
     DISJUNCTION = '/\\'   # a /\ b
     IMPLICATION = '->'    # a -> b
-    EQUIVALENCE  = '<->'   # a <-> b
+    EQUIVALENCE = '<->'   # a <-> b
+    FORALL      = 'FA'    # FA ( f(x) )
+    EXIST       = 'EX'    # EX ( f(x) )
+    FUNCTION    = '()'    # f(x)
 
     @staticmethod
     def getOperation(operand: str):
@@ -45,6 +49,10 @@ class Operation(Enum):
             return Operation.IMPLICATION
         elif(operand == '<->'):
             return Operation.EQUIVALENCE
+        elif(re.match("^FA\(\w+\)$", operand) != None):
+            return Operation.FORALL
+        elif(re.match("^EX\(\w+\)$", operand) != None):
+            return Operation.EXIST
         else:
             return Operation.NONE
 
@@ -70,10 +78,6 @@ class ClauseSentence:
     clause: Union[tuple, str]
     operand: Operation
     def __init__(self, operand: Operation, clause: tuple):
-        if(operand == Operation.NONE):
-            assert isinstance(clause, str), "you should use str or tuple with Clause type element"
-        else:
-            assert all(isinstance(i, ClauseSentence) for i in clause), "you should use str or tuple with Clause type element"
         self.operand = operand
         self.clause = clause
 
@@ -369,6 +373,10 @@ def parse(input: list) -> ClauseSentence:
             (<Operation.DISJUNCTION: '/\'>, ((<Operation.NEGATION: '~'>, ((<Operation.NONE: ' '>, 'p'),)), (<Operation.EQUIVALENCE: '<->'>, ((<Operation.NONE: ' '>, 'q'), (<Operation.NONE: ' '>, 'p')))))
     """
     if(len(input) == 1):
+        if(re.match("^\w+\(\w+\)", input[0]) != None):
+            name = re.findall("^\w+(?=\()", input[0])[0]
+            var = re.findall("(?<=\()\w+(?=\))", input[0])[0]
+            return ClauseSentence(Operation.FUNCTION, (name, var))
         return ClauseSentence( Operation.NONE, input[0] )
     i = 0
     while (i != len(input)):
@@ -388,9 +396,13 @@ def parse(input: list) -> ClauseSentence:
             if (begin == 1 and i == len(input)-1):
                 return parse(input[begin:i])
 
-        if(Operation.getOperation(input[0]) == Operation.NEGATION):
+        if(Operation.getOperation(input[0]) == Operation.NEGATION
+            or Operation.getOperation(input[0]) == Operation.FORALL
+            or Operation.getOperation(input[0]) == Operation.EXIST
+        ):
+            name = re.findall("(?<=\()\w+(?=\))", input[0])[0]
             clause = parse(input[i+1:])
-            return ClauseSentence( Operation.getOperation(input[i]), (clause,) )
+            return ClauseSentence( Operation.getOperation(input[i]), (clause,name) )
         if(Operation.getOperation(input[i]) != Operation.NONE):
             clause = ( parse(input[0:i]), parse(input[i+1:len(input)]) )
             return ClauseSentence( Operation.getOperation(input[i]) , clause )
