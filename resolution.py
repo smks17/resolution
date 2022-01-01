@@ -7,7 +7,7 @@ __author__ = 'Mahdi Kashani'
 __title__ = 'Resolution method'
 
 
-replacement = {}
+replacement = {}    # keep replacement variables
 is_firstOrder = False
 
 #=====================
@@ -22,6 +22,9 @@ class Operation(Enum):
             DISJUNCTION : /\\
             IMPLICATION : ->
             EQUIVALENCE : <->
+            FORALL      : FA
+            EXIST       : EX
+            FUNCTION    : ()
 
         Methods
         -------
@@ -97,7 +100,10 @@ class ClauseSentence:
         return hash(self.__key())
 
     def __eq__(self, other) -> bool:
-        return (isinstance(other, type(self)) and (self.clause, self.operand) == (other.clause, other.operand))        
+        return (
+            (isinstance(other, type(self))
+            and (self.clause, self.operand) == (other.clause, other.operand))
+        )
 
     def __str__(self):
         if(self.operand == Operation.NONE or self.operand == Operation.NEGATION):
@@ -123,15 +129,34 @@ def convert(term: ClauseSentence):
     
     # implication convert to conjunction
     if(term.operand == Operation.IMPLICATION):
-        clause = (applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],) )), term.clause[1])
+        clause = (applyNegation(ClauseSentence( Operation.NEGATION,(term.clause[0],) )), term.clause[1])
         res = ClauseSentence( Operation.CONJUNCTION, clause )
         if(isNegation):
             return applyNegation(ClauseSentence( Operation.NEGATION, (res,)))
         return res
+    
     # equivalence convert to disjunction
     elif(term.operand == Operation.EQUIVALENCE):
-        clause1 = applyNegation(ClauseSentence( Operation.CONJUNCTION, (applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))), term.clause[1])))
-        clause2 = applyNegation(ClauseSentence( Operation.CONJUNCTION, (term.clause[0], applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))))
+        clause1 = applyNegation(
+            ClauseSentence(
+                Operation.CONJUNCTION,
+                (
+                    applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))),
+                    term.clause[1]
+                )
+            )
+        )
+
+        clause2 = applyNegation(
+            ClauseSentence(
+                Operation.CONJUNCTION,
+                (
+                    term.clause[0],
+                    applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],)))
+                )
+            )
+        )
+
         res = ClauseSentence(Operation.DISJUNCTION, (clause1, clause2))
         if(isNegation):
             return applyNegation(ClauseSentence( Operation.NEGATION, (res,)))
@@ -200,14 +225,24 @@ def splitByDisjunction(term: ClauseSentence):
     if(term.operand == Operation.DISJUNCTION):
         clause1 = term.clause[0]
         clause2 = term.clause[1]
-        if(not clause1.operand == Operation.NONE and not (clause1.operand == Operation.NONE and clause1.clause[0].operand == Operation.NEGATION)):
+        if(
+            not clause1.operand == Operation.NONE
+            and not (clause1.operand == Operation.NONE
+            and clause1.clause[0].operand == Operation.NEGATION)
+        ):
             result += (splitByDisjunction(clause1))
         else:
             result.append({clause1.toString()})
-        if(not clause2.operand == Operation.NONE and not (clause2.operand == Operation.NONE and clause1.clause[0].operand == Operation.NEGATION)):
+        
+        if(
+            not clause2.operand == Operation.NONE
+            and not (clause2.operand == Operation.NONE
+            and clause1.clause[0].operand == Operation.NEGATION)
+        ):
             result += (splitByDisjunction(clause2))
         else:
             result.append({clause2.toString()})
+        
         return result
 
     # (A \/ B \/ ...)
@@ -237,21 +272,46 @@ def applyNegation(term: ClauseSentence):
         
         # conjunction
         if(term.operand == Operation.CONJUNCTION):
-            clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
+            clause1 = applyNegation(
+                simplificationNegation(
+                    ClauseSentence(Operation.NEGATION, (term.clause[0],))
+                )
+            )
             clause2 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))
             return ClauseSentence( Operation.DISJUNCTION, (clause1 , clause2) )
         
         # disjunction
         elif(term.operand == Operation.DISJUNCTION):
-            clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
-            clause2 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))
+            clause1 = applyNegation(
+                simplificationNegation(
+                    ClauseSentence(Operation.NEGATION, (term.clause[0],))
+                )
+            )
+            clause2 = applyNegation(
+                simplificationNegation(
+                    ClauseSentence(Operation.NEGATION, (term.clause[1],))
+                )
+            )
             return ClauseSentence( Operation.CONJUNCTION, (clause1 , clause2) )
         
         # first order operations
         elif(term.operand == Operation.EXIST):
-            return ClauseSentence(Operation.FORALL, (applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))), term.clause[1]))
+            return ClauseSentence(
+                Operation.FORALL,
+                (
+                    applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))),
+                    term.clause[1]
+                )
+            )
+        
         elif(term.operand == Operation.FORALL):
-            return ClauseSentence(Operation.EXIST, (applyNegation(Operation.NEGATION, (term.clause[0],)), term.clause[1]))
+            return ClauseSentence(
+                Operation.EXIST,
+                (
+                    applyNegation(Operation.NEGATION, (term.clause[0],)),
+                    term.clause[1]
+                )
+            )
        
         elif(term.operand == Operation.NEGATION):
             return applyNegation(term.clause[0])
@@ -276,7 +336,12 @@ def deleteForalls(term: ClauseSentence):
     return term
             
 
+#-------------------------------------------
 def replace(term: ClauseSentence, var: str):
+#-------------------------------------------
+    """
+        find and replace all var in terms
+    """
     if(term.operand == Operation.FUNCTION):
         if(term.clause[1] == var):
             rep = replacement.get(var, f'rep{len(replacement) + 1}')
@@ -428,7 +493,10 @@ def prove(premises: list[str], conclusion: str = ""):
         if(not clause.operand == Operation.NONE):
             if(clause.operand == Operation.NEGATION):
                 clause = simplificationNegation(clause)
-            if(clause.operand == Operation.IMPLICATION or clause.operand == Operation.EQUIVALENCE):
+            if(
+                clause.operand == Operation.IMPLICATION
+                or clause.operand == Operation.EQUIVALENCE
+            ):
                 clause = convert(clause)
             res = distribution(clause)
             if(not res == None):
@@ -470,12 +538,14 @@ def parse(input: list) -> ClauseSentence:
     """
     global is_firstOrder
     if(len(input) == 1):
+        # if it is a function
         if(re.match("^\w+\(\w+\)", input[0]) != None):
             name = re.findall("^\w+(?=\()", input[0])[0]
             var = re.findall("(?<=\()\w+(?=\))", input[0])[0]
             return ClauseSentence(Operation.FUNCTION, (name, var))
         return ClauseSentence( Operation.NONE, input[0] )
     i = 0
+
     while (i != len(input)):
         if(input[i] == '('):
             begin = i+1
@@ -496,6 +566,7 @@ def parse(input: list) -> ClauseSentence:
         if(Operation.getOperation(input[0]) == Operation.NEGATION):
             clause = parse(input[i+1:])
             return ClauseSentence( Operation.getOperation(input[i]), (clause,) )
+        
         if(Operation.getOperation(input[0]) == Operation.FORALL
             or Operation.getOperation(input[0]) == Operation.EXIST
         ):
@@ -503,6 +574,7 @@ def parse(input: list) -> ClauseSentence:
             name = re.findall("(?<=\()\w+(?=\))", input[0])[0]
             clause = parse(input[i+1:])
             return ClauseSentence( Operation.getOperation(input[i]), (clause,name) )
+        
         if(Operation.getOperation(input[i]) != Operation.NONE):
             clause = ( parse(input[0:i]), parse(input[i+1:len(input)]) )
             return ClauseSentence( Operation.getOperation(input[i]) , clause )
