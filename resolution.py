@@ -7,6 +7,9 @@ __author__ = 'Mahdi Kashani'
 __title__ = 'Resolution method'
 
 
+replacement = {}
+is_firstOrder = False
+
 #=====================
 class Operation(Enum):
 #=====================
@@ -100,6 +103,8 @@ class ClauseSentence:
         if(self.operand == Operation.NONE or self.operand == Operation.NEGATION):
             op = self.operand.symbol
             return f'{op} {str(self.clause.__str__())}'
+        elif(self.operand == Operation.FUNCTION):
+            return f'{self.clause[0]}({self.clause[1]})'
         op = self.operand.symbol
         return f'{self.clause[0].__str__()} {op} {self.clause[1].__str__()}'
     
@@ -241,10 +246,81 @@ def applyNegation(term: ClauseSentence):
             clause1 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))))
             clause2 = applyNegation(simplificationNegation(ClauseSentence(Operation.NEGATION, (term.clause[1],))))
             return ClauseSentence( Operation.CONJUNCTION, (clause1 , clause2) )
+        
+        # first order operations
+        elif(term.operand == Operation.EXIST):
+            return ClauseSentence(Operation.FORALL, (applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],))), term.clause[1]))
+        elif(term.operand == Operation.FORALL):
+            return ClauseSentence(Operation.EXIST, (applyNegation(Operation.NEGATION, (term.clause[0],)), term.clause[1]))
+       
         elif(term.operand == Operation.NEGATION):
             return applyNegation(term.clause[0])
         else:
             return ClauseSentence(Operation.NEGATION, (term,))
+
+
+def deleteForalls(term: ClauseSentence):
+    if(term.operand == Operation.FORALL):
+        term = term.clause[0]
+    elif(not term.operand in [Operation.NONE, Operation.FUNCTION]):
+        if(not term.operand in [Operation.NEGATION, Operation.EXIST]):
+            term.clause = (deleteForalls(term.clause[0]), term.clause[1])
+            term.clause = (term.clause[0], deleteForalls(term.clause[1]))
+        else:
+            term.clause = (deleteForalls(term.clause[0]),)
+    return term
+            
+
+def replace(term: ClauseSentence, var: str):
+    if(term.operand == Operation.FUNCTION):
+        if(term.clause[1] == var):
+            rep = replacement.get(var, f'rep{len(replacement) + 1}')
+            replacement[term.clause[1]] = rep
+            term.clause = (term.clause[0], rep)
+    else:
+        if(not term.operand in [Operation.NONE, Operation.FUNCTION]):
+            if(not term.operand in [Operation.NEGATION, Operation.FORALL]):
+                replace(term.clause[0], var)
+                replace(term.clause[1], var)
+            else:
+                replace(term.clause[0], var)
+
+
+#-------------------------------------
+def skolemizing(term: ClauseSentence):
+#-------------------------------------
+    if(term.operand == Operation.EXIST):
+        replace(term.clause[0], term.clause[1])
+        return term.clause[0]
+    elif(not term.operand in [Operation.NONE, Operation.FUNCTION]):
+        if(not term.operand in [Operation.NEGATION, Operation.FORALL]):
+            term.clause = (skolemizing(term.clause[0]), term.clause[1])
+            term.clause = (term.clause[0], skolemizing(term.clause[1]))
+        else:
+            term.clause = (skolemizing(term.clause[0]),)
+    return term
+
+
+def functionsToStr(term: ClauseSentence):
+    if(term.operand == Operation.FUNCTION):
+        return ClauseSentence(Operation.NONE, term.__str__())
+    elif(term.operand == Operation.NONE):
+        pass
+    else:
+        if(not term.operand in [Operation.NEGATION, Operation.EXIST]):
+            term.clause = (functionsToStr(term.clause[0]), term.clause[1])
+            term.clause = (term.clause[0], functionsToStr(term.clause[1]))
+        else:
+            term.clause = (functionsToStr(term.clause[0]),)
+    return term
+
+
+def simplificationFirstOrder(term):
+    term = applyNegation(term)
+    term = skolemizing(term)
+    term = deleteForalls(term)
+    term = functionsToStr(term)
+    return term
     
 #----------------------------------------------
 def subscription(premise1: set, premise2: set):
@@ -255,7 +331,7 @@ def subscription(premise1: set, premise2: set):
     """
     for pre1 in premise1:
         for pre2 in premise2:
-            if(pre1[-1] == pre2[-1]):
+            if((pre1 in pre2 and pre2 == '~'+pre1) or (pre2 in pre1 and pre1 == '~'+pre2)):
                 temp = premise1.copy()
                 temp.remove(pre1)
                 temp |= premise2.copy()
@@ -324,12 +400,15 @@ def prove(premises: list[str], conclusion: str = ""):
             variable and a operation put a braces. 
 
     """
+    global is_firstOrder
     tempPremises = premises.copy()
     if (conclusion != ""):
         tempPremises.append('~ ( ' + conclusion + ' )')
     premisesClause = []
     for pre in tempPremises:
         clause = parse(pre.split())
+        if(is_firstOrder):
+            clause = simplificationFirstOrder(clause)
         if(not clause.operand == Operation.NONE):
             if(clause.operand == Operation.NEGATION):
                 clause = simplificationNegation(clause)
@@ -338,6 +417,7 @@ def prove(premises: list[str], conclusion: str = ""):
             res = distribution(clause)
             if(not res == None):
                 clause = res
+        is_firstOrder = False
         premisesClause += splitByDisjunction(clause)
     
     temp = []
@@ -372,6 +452,7 @@ def parse(input: list) -> ClauseSentence:
             >>> print(parse(input))
             (<Operation.DISJUNCTION: '/\'>, ((<Operation.NEGATION: '~'>, ((<Operation.NONE: ' '>, 'p'),)), (<Operation.EQUIVALENCE: '<->'>, ((<Operation.NONE: ' '>, 'q'), (<Operation.NONE: ' '>, 'p')))))
     """
+    global is_firstOrder
     if(len(input) == 1):
         if(re.match("^\w+\(\w+\)", input[0]) != None):
             name = re.findall("^\w+(?=\()", input[0])[0]
@@ -396,10 +477,13 @@ def parse(input: list) -> ClauseSentence:
             if (begin == 1 and i == len(input)-1):
                 return parse(input[begin:i])
 
-        if(Operation.getOperation(input[0]) == Operation.NEGATION
-            or Operation.getOperation(input[0]) == Operation.FORALL
+        if(Operation.getOperation(input[0]) == Operation.NEGATION):
+            clause = parse(input[i+1:])
+            return ClauseSentence( Operation.getOperation(input[i]), (clause,) )
+        if(Operation.getOperation(input[0]) == Operation.FORALL
             or Operation.getOperation(input[0]) == Operation.EXIST
         ):
+            is_firstOrder = True
             name = re.findall("(?<=\()\w+(?=\))", input[0])[0]
             clause = parse(input[i+1:])
             return ClauseSentence( Operation.getOperation(input[i]), (clause,name) )
