@@ -7,9 +7,11 @@
 | :-----:     | :----:   | :---: |
 | implement   | &#8594;  | ->  |
 | equivalence | &#10231; | <-> |
-| conjunction | &#8743;  | /\\  |
+| conjunction | &#8743;  | /\\ |
 | disjunction | &#8744;  | \/  |
 | negation    | &#172;   | ~   |
+| for all     | &#8704;  | FA  |
+| there exists| &#8707;  | EX  |
 
 # Format of writing
 
@@ -40,6 +42,30 @@ example :
 
 ❌ incorrect: p \/ q \/ r \
 ✔️ correct: ( p \/ q ) \/ r
+
+### fisrt order
+
+- don not use space in FA(x), EX(x) and functions like f(x)
+
+❌ incorrect: FA( x ) \
+✔️ correct: FA(x)
+
+❌ incorrect: EX (x) \
+✔️ correct: EX(x)
+
+❌ incorrect: f ( x ) \
+✔️ correct: f(X)
+
+- use bracket with space for using first order opearions
+
+❌ incorrect: FA(x)( ... ) \
+✔️ correct: FA(x) ( f(x) )
+
+❌ incorrect: EX(x) (f(x)) \
+✔️ correct: EX(x) ( f(x) )
+
+❌ incorrect: FA(x) ( f(x) ) -> EX(x) ( f(x) ) \
+✔️ correct: ( FA(x) ( f(x) ) ) -> ( EX(x) ( f(x) ) )
 
 # Usage
 
@@ -79,6 +105,12 @@ you can really easy put ./resolution.py in your folder and import that then for 
     >>> result = prove(premises, conclusion)
     >>> print(result)
     (True, [{'p'}, {'q'}, {'~p'}])
+
+    >>> premises = [' FA(x) ( f(x) )']
+    >>> conclusion = '( EX(y) ( f(x) ) ) -> ( EX(y) ( f(x) ) ) '
+    >>> result = prove(premises, conclusion)
+    >>> print(result)[0]
+    True
 
 ----
 for more example see ./example.py

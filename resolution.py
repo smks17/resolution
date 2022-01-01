@@ -259,7 +259,12 @@ def applyNegation(term: ClauseSentence):
             return ClauseSentence(Operation.NEGATION, (term,))
 
 
+#----------------------------------------
 def deleteForalls(term: ClauseSentence):
+#----------------------------------------
+    """
+        delete all 'for alls' operations
+    """
     if(term.operand == Operation.FORALL):
         term = term.clause[0]
     elif(not term.operand in [Operation.NONE, Operation.FUNCTION]):
@@ -289,6 +294,9 @@ def replace(term: ClauseSentence, var: str):
 #-------------------------------------
 def skolemizing(term: ClauseSentence):
 #-------------------------------------
+    """
+        delete all exist and will change variables if need
+    """
     if(term.operand == Operation.EXIST):
         replace(term.clause[0], term.clause[1])
         return term.clause[0]
@@ -301,7 +309,12 @@ def skolemizing(term: ClauseSentence):
     return term
 
 
+#----------------------------------------
 def functionsToStr(term: ClauseSentence):
+#----------------------------------------
+    """
+        convert all functions to a object likes variables
+    """
     if(term.operand == Operation.FUNCTION):
         return ClauseSentence(Operation.NONE, term.__str__())
     elif(term.operand == Operation.NONE):
@@ -315,13 +328,16 @@ def functionsToStr(term: ClauseSentence):
     return term
 
 
+#-----------------------------------
 def simplificationFirstOrder(term):
+#-----------------------------------
     term = applyNegation(term)
     term = skolemizing(term)
     term = deleteForalls(term)
     term = functionsToStr(term)
     return term
-    
+
+
 #----------------------------------------------
 def subscription(premise1: set, premise2: set):
 #----------------------------------------------
