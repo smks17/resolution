@@ -81,14 +81,15 @@ then you can write your premise for see result like this:
     Welcome to the resolution shell.   Type help or ? to list commands.
 
     > ( p /\\ q ) -> ( p \/ q )
-    (True, [{'~p'}, {'~q'}, {'p'}, {'q'}])
+    (True, [{'~p'}, {'~q'}, {'p'}, {'q'}, set()])
 
 first thing that print is True or False that means your premise(s) (and conclusion) is provable or not.
 
-another example:
+another examples:
 
-    > p -> q , p , q
-    (True, [{'~p'}, {'q'}, {'p'}, {'~q'}])
+    > p -> q | p | q
+    (True, [{'~p'}, {'q'}, {'p'}, {'~q'}, set()])
+    > 
 
 in this example p -> q and p is the premises and q that clause should be prove.
 
@@ -104,7 +105,7 @@ you can really easy put ./resolution.py in your folder and import that then for 
     >>> conclusion = 'p'
     >>> result = prove(premises, conclusion)
     >>> print(result)
-    (True, [{'p'}, {'q'}, {'~p'}])
+    (True, [{'p'}, {'q'}, {'~p'}, set()])
 
     >>> premises = [' FA(x) ( f(x) )']
     >>> conclusion = '( EX(y) ( f(x) ) ) -> ( EX(y) ( f(x) ) ) '

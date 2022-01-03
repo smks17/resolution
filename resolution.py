@@ -465,7 +465,6 @@ def subscription(premise1: set[str], premise2: set[str]):
     for pre1 in premise1:
         for pre2 in premise2:
             # if variable in functions are not a constant
-            is_function = False
             is_valid = False
 
             if(isFunction(pre1) and isFunction(pre2)):
@@ -497,14 +496,7 @@ def subscription(premise1: set[str], premise2: set[str]):
 
                     is_valid = True
             
-            # if(is_function):
-            #     temp = (pre1, pre2)
-            #     pre1 = getFunctionName(pre1)
-            #     pre2 = getFunctionName(pre2)
-            
             if(is_valid or (pre1 in pre2 and pre2 == '~'+pre1) or (pre2 in pre1 and pre1 == '~'+pre2)):
-                # if(is_function):
-                #     pre1, pre2 = temp
                 temp1 = premise1.copy()
                 temp1.remove(pre1)
                 temp2 = premise2.copy()

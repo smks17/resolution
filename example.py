@@ -4,16 +4,22 @@ from resolution import prove
 
 pp = pprint.PrettyPrinter(indent=4)
 
-data = [
-    #   premises            conclusion                      status
-    # -----------------------------------------------------------------
-    (['p -> q', 'p'],           'q'),                       # provable
-    ([' p /\\ q', 'q'],         'p'),                       # provable
-    (['p -> q', 'q'],           'p'),                       # not provable
-    (['p -> q', 'r -> s'],'( p \\/ r ) -> ( q \\/ s )')     # provable
+clauses = [
+    #   premises                                                conclusion          status
+    # --------------------------------------------------------------------------------------------
+    (['p -> q', 'p'],                                               'q'),           # provable
+    ([' p /\\ q', 'q'],                                             'p'),           # provable
+    (['p -> q', 'q'],                                               'p'),           # not provable
+    (['p <-> q', '~q'],                                             'p'),           # not provable
+    (['( p /\\ q ) -> ( p \\/ q )'],                               None),           # provable
+    (['( FA(x) ( f(x) ) ) -> ( EX(x) ( f(x) ) )'],                 None),           # provable
+    ([' ( FA(x) ( f(x,x) ) ) -> ( EX(y) ( FA(x) ( f(x,y) ) ) )'],  None),           # not provable
+    (['p -> q', 'r -> s'],                          '( p \\/ r ) -> ( q \\/ s )'),  # provable
+    (['FA(x) ( F(x) )'],                                      'EX(y) ( F(y) )'),    # provable
+    (['( FA(x) ( R(x) -> S(x) ) )', 'FA(y) ( R(y) ) '],       'FA(z) ( S(z) )')     # provable
 ]
 
-def runExample(premises, conclusion):
+def runExample(premises, conclusion = ""):
     pp.pprint(f'premises: {", ".join(premises)}')
     pp.pprint(f'conclusion: {conclusion}')
     result = prove(premises, conclusion)
@@ -25,7 +31,13 @@ def runExample(premises, conclusion):
     pp.pprint(result[1])
 
 if __name__ == "__main__":
-    for n in range(len(data)):
+    for n in range(len(clauses)):
         print('\x1b[1;35;40m' + f'example {int(n+1)}:' + '\x1b[0m')
-        eval(f'runExample({data[n][0]}, \'{data[n][1]}\')')    #run nth example
+        con = clauses[n][1]
+
+        #run nth example
+        if con == None:
+            runExample(clauses[n][0])
+        else:
+            runExample(clauses[n][0], con)
         print()
