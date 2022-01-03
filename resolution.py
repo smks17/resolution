@@ -109,10 +109,23 @@ class ClauseSentence:
             op = self.operand.symbol
             return f'{op} {str(self.clause.__str__())}'
         elif(self.operand == Operation.FUNCTION):
-            return f'{self.clause[0]}({self.clause[1]})'
+            temp = ",".join(self.clause[1])
+            return f'{self.clause[0]}({temp})'
         op = self.operand.symbol
         return f'{self.clause[0].__str__()} {op} {self.clause[1].__str__()}'
-    
+
+
+replaceList = lambda l, old, new: [new if x==old else x for x in l]
+
+def isFunction(string) -> bool:
+    return re.match("~*\w+\([\w+,*]+\)", string) != None
+
+def getFunctionVars(string) -> str:
+    return re.findall("(?<=\()[\w+,*]+(?=\))", string)[0]
+
+def getFunctionName(string) -> str:
+    return re.findall("\w+(?=\()", string)[0]
+
 #----------------------------------
 def convert(term: ClauseSentence):
 #----------------------------------
@@ -223,7 +236,7 @@ def distribution(term: ClauseSentence):
         clause1 = distribution(ClauseSentence(term.operand, (term.clause[1].clause[0], term.clause[0])))
         clause2 = distribution(ClauseSentence(term.operand, (term.clause[1].clause[1], term.clause[0])))
         return ClauseSentence(term.clause[1].operand, (clause1, clause2))
-
+    
     return term
 
 #--------------------------------------------
@@ -316,7 +329,7 @@ def applyNegation(term: ClauseSentence):
         term = term.clause[0]
         # # if still equivalence or implication did not converted
         term = simplificationNegation(term)
-        
+
         # conjunction
         if(term.operand == Operation.CONJUNCTION):
             clause1 = applyNegation(ClauseSentence(Operation.NEGATION, (term.clause[0],)))
@@ -379,13 +392,13 @@ def replace(term: ClauseSentence, var: str):
         find and replace all var in terms
     """
     if(term.operand == Operation.FUNCTION):
-        if(term.clause[1] == var):
+        if(var in term.clause[1]):
             rep = replacement.get(var, f'rep{len(replacement) + 1}')
-            replacement[term.clause[1]] = rep
-            term.clause = (term.clause[0], rep)
+            replacement[var] = rep
+            term.clause = (term.clause[0], replaceList(term.clause[1], var, rep))
     else:
-        if(not term.operand in [Operation.NONE, Operation.FUNCTION]):
-            if(not term.operand in [Operation.NEGATION, Operation.FORALL]):
+        if(not term.operand == Operation.FUNCTION):
+            if(not term.operand in [Operation.NEGATION, Operation.FORALL, Operation.EXIST]):
                 replace(term.clause[0], var)
                 replace(term.clause[1], var)
             else:
@@ -443,7 +456,7 @@ def simplificationFirstOrder(term):
 
 
 #----------------------------------------------
-def subscription(premise1: set, premise2: set):
+def subscription(premise1: set[str], premise2: set[str]):
 #----------------------------------------------
     """
         return a set without every repetitious variables in 2 set of premises
@@ -451,13 +464,53 @@ def subscription(premise1: set, premise2: set):
     """
     for pre1 in premise1:
         for pre2 in premise2:
-            if((pre1 in pre2 and pre2 == '~'+pre1) or (pre2 in pre1 and pre1 == '~'+pre2)):
-                temp = premise1.copy()
-                temp.remove(pre1)
-                temp |= premise2.copy()
-                temp = temp
-                temp.remove(pre2)
-                yield (temp)
+            # if variable in functions are not a constant
+            is_function = False
+            is_valid = False
+
+            if(isFunction(pre1) and isFunction(pre2)):
+                if(getFunctionName(pre1) == getFunctionName(pre2)):
+                    if(("~" in pre1 and "~" in pre2) or (not "~" in pre2 and not "~" in pre1)):
+                        continue
+                    var1 = getFunctionVars(pre1)
+                    listvar1 = var1.split(',')
+                    var2 = getFunctionVars(pre2)
+                    listvar2 = var2.split(',')
+                    constVars1 = set(listvar1) & set(replacement.values())
+                    constVars2 = set(listvar2) & set(replacement.values())
+                    if(len(constVars1) != 0 and len(constVars2) != 0 and constVars1 != constVars2):
+                            continue
+                    else:
+                        is_function = True
+                        if(constVars1 == constVars2 and len(constVars1) != 0 and len(constVars2) != 0):
+                            pass
+                        elif(len(constVars1) == 0 and len(constVars2) != 0):
+                            premise1.remove(pre1)
+                            for v in constVars2:
+                                pre1 = pre1.replace(var1, v)
+                            premise1.add(pre1)
+                        elif(len(constVars2) == 0 and len(constVars1) != 0):
+                            premise2.remove(pre2)
+                            for v in constVars1:
+                                pre2 = pre2.replace(var2, v)
+                            premise2.add(pre2)
+
+                    is_valid = True
+            
+            # if(is_function):
+            #     temp = (pre1, pre2)
+            #     pre1 = getFunctionName(pre1)
+            #     pre2 = getFunctionName(pre2)
+            
+            if(is_valid or (pre1 in pre2 and pre2 == '~'+pre1) or (pre2 in pre1 and pre1 == '~'+pre2)):
+                # if(is_function):
+                #     pre1, pre2 = temp
+                temp1 = premise1.copy()
+                temp1.remove(pre1)
+                temp2 = premise2.copy()
+                temp2.remove(pre2)
+                yield (temp1 | temp2)
+
 
 
 #------------------------------
@@ -550,7 +603,7 @@ def prove(premises: list[str], conclusion: str = ""):
     if(len(tempPremises) == 1 and len(premisesClause) == 1):
         [temp.append({x}) for x in premisesClause[0] if x not in temp]
     else:
-    [temp.append(x) for x in premisesClause if x not in temp]
+        [temp.append(x) for x in premisesClause if x not in temp]
     premisesClause = temp
 
     return isProvable(premisesClause), premisesClause
@@ -586,10 +639,10 @@ def parse(input: list) -> ClauseSentence:
     global is_firstOrder
     if(len(input) == 1):
         # if it is a function
-        if(re.match("^\w+\(\w+\)", input[0]) != None):
-            name = re.findall("^\w+(?=\()", input[0])[0]
-            var = re.findall("(?<=\()\w+(?=\))", input[0])[0]
-            return ClauseSentence(Operation.FUNCTION, (name, var))
+        if(isFunction(input[0])):
+            name = getFunctionName(input[0])
+            var = getFunctionVars(input[0])
+            return ClauseSentence(Operation.FUNCTION, (name, var.split(",")))
         return ClauseSentence( Operation.NONE, input[0] )
     i = 0
 
