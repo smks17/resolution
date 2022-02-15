@@ -114,4 +114,5 @@ you can really easy put ./resolution.py in your folder and import that then for 
     True
 
 ----
-for more example see ./example.py
+### TODO
+[] delete types for compatibility python 3.8

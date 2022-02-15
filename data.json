@@ -1,0 +1,64 @@
+{
+    "size" : "10",
+
+    "test1" : {
+        "premises": ["p -> q", "p"],
+        "conclude": "q",
+        "isProvable" : true,
+        "result" : "[{'q', '~p'}, {'p'}, {'~q'}, {'q'}, {'~p'}, set()]"
+    },
+    "test2" : {
+        "premises": ["p /\\ q", "q"],
+        "conclude": "p",
+        "isProvable" : true,
+        "result" : "[{'p'}, {'q'}, {'~p'}, set()]"
+    },
+    "test3" : {
+        "premises": ["p -> q", "q"],
+        "conclude": "p",
+        "isProvable": false,
+        "result": "[{'q', '~p'}, {'q'}, {'~p'}]"
+    },
+    "test4" : {
+        "premises": ["p <-> q", "~q"],
+        "conclude": "p",
+        "isProvable": false,
+        "result": "[{'q', '~p'}, {'~q', 'p'}, {'~q'}, {'~p'}, {'~q', 'q'}, {'p', '~p'}]"
+    },
+    "test5" : {
+        "premises": ["( p /\\ q ) -> ( p \\/ q )"],
+        "conclude": "",
+        "isProvable": true,
+        "result": "[{'~q'}, {'p'}, {'~p'}, {'q'}, set()]"
+    },
+    "test6" : {
+        "premises": ["( FA(x) ( f(x) ) ) -> ( EX(x) ( f(x) ) )"],
+        "conclude": "",
+        "isProvable": true,
+        "result": "[{'f(rep1)'}, {'~f(rep1)'}, set()]"
+    },
+    "test7" : {
+        "premises": ["( FA(x) ( f(x,x) ) ) -> ( EX(y) ( FA(x) ( f(x,y) ) ) )"],
+        "conclude": "",
+        "isProvable": false,
+        "result": "[{'f(x,rep2)'}, {'~f(rep1,rep1)'}]"
+    },
+    "test8" : {
+        "premises": ["p -> q", "r -> s"],
+        "conclude": "( p \\/ r ) -> ( q \\/ s )",
+        "isProvable": true,
+        "result": "[{'q', '~p'}, {'~r', 's'}, {'p', 'r'}, {'~q'}, {'~s'}, {'q', 'r'}, {'~p'}, {'s', 'p'}, {'~r'}, {'q', 's'}, {'r'}, {'p'}, {'s'}, {'q'}, set()]"
+    },
+    "test9" : {
+        "premises": ["FA(x) ( F(x) )"],
+        "conclude": "EX(y) ( F(y) )",
+        "isProvable": true,
+        "result": "[{'F(x)'}, {'~F(y)'}, set()]"
+    },
+    "test10" : {
+        "premises": ["( FA(x) ( R(x) -> S(x) ) )", "FA(y) ( R(y) ) "],
+        "conclude": "FA(z) ( S(z) )",
+        "isProvable": true,
+        "result": "[{'S(rep3)', '~R(x)'}, {'R(y)'}, {'~S(rep3)'}, {'S(x)'}, {'~R(x)'}, {'S(rep3)'}, set()]"
+    }
+}
