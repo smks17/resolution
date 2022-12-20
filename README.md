@@ -112,7 +112,3 @@ you can really easy put ./resolution.py in your folder and import that then for 
     >>> result = prove(premises, conclusion)
     >>> print(result)[0]
     True
-
-----
-### TODO
-[] delete types for compatibility python 3.8
