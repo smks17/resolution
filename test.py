@@ -13,7 +13,8 @@ class TestClassResolution:
         testData = data[testNum]
         actual = resolution.prove(testData["premises"], testData["conclude"])
         expect = (testData["isProvable"], eval(testData["result"]))
-        assert (actual, expect)
+        assert (actual[0] == expect[0]), "Provable is not same!"
+        assert (actual[1].sort() == expect[1].sort()), "Prove set is not same!"
     
     def test_input01(self): self.run_input_output('1')
     def test_input02(self): self.run_input_output('2')
